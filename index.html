@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Soft Chaos by Snehaeasha</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Poppins:wght@300;400;500&display=swap" rel="stylesheet">
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    body{
+      margin:0;
+      font-family:'Poppins',sans-serif;
+      background:#fff6fb;
+      color:#3a2d3f;
+    }
+
+    header{
+      text-align:center;
+      padding:3rem 1rem;
+      background:linear-gradient(135deg,#ffd6e8,#e0f2ff);
+      border-bottom-left-radius:40px;
+      border-bottom-right-radius:40px;
+    }
+
+    header h1{
+      font-family:'Playfair Display',serif;
+      color:#c77dff;
+      font-size:3rem;
+      margin-bottom:.4rem;
+    }
+
+    main{
+      max-width:900px;
+      margin:auto;
+      padding:2rem;
+    }
+
+    .card{
+      background:white;
+      padding:1.6rem;
+      border-radius:20px;
+      box-shadow:0 10px 30px rgba(0,0,0,.08);
+      margin-bottom:1.8rem;
+      transition:.3s;
+    }
+
+    .card:hover{
+      transform:translateY(-6px);
+      box-shadow:0 15px 35px rgba(199,125,255,.25);
+    }
+
+    input, textarea, select, button{
+      width:100%;
+      padding:.7rem;
+      margin-top:.6rem;
+      border-radius:10px;
+      border:1px solid #ddd;
+      font-family:inherit;
+    }
+
+    button{
+      background:linear-gradient(135deg,#c77dff,#ffafcc);
+      border:none;
+      color:white;
+      cursor:pointer;
+      margin-top:1rem;
+    }
+
+    .hidden{display:none}
+
+    .meta{
+      font-size:.8rem;
+      color:#777;
+      margin-bottom:.5rem;
+    }
+
+    .author{
+      font-size:.75rem;
+      color:#a084c7;
+      font-style:italic;
+      margin-top:1rem;
+      text-align:right;
+    }
+
+    /* Tabs */
+    .tabs{
+      display:flex;
+      gap:1rem;
+      flex-wrap:wrap;
+      margin-bottom:1.5rem;
+    }
+
+    .tabs button{
+      width:auto;
+      padding:.4rem 1.2rem;
+      border-radius:999px;
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <h1>Soft Chaos</h1>
+  <p>a personal writing space by <strong>Snehaeasha</strong></p>
+</header>
+
+<main>
+
+  <!-- LOGIN -->
+  <div id="loginBox" class="card">
+    <h2>Writer Login</h2>
+    <input id="email" type="email" placeholder="Email">
+    <input id="password" type="password" placeholder="Password">
+    <button onclick="login()">Login</button>
+  </div>
+
+  <!-- WRITE -->
+  <div id="writeBox" class="card hidden">
+    <h2>Write & Publish</h2>
+
+    <select id="type">
+      <option>Poetry</option>
+      <option>Short Story</option>
+      <option>Long Story</option>
+    </select>
+
+    <input id="title" placeholder="Title">
+    <textarea id="content" rows="6" placeholder="Write here..."></textarea>
+    <button onclick="publish()">Publish</button>
+  </div>
+
+  <!-- POSTS -->
+  <h2>Published Writings</h2>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button onclick="filterPosts('All')">All</button>
+    <button onclick="filterPosts('Poetry')">Poetry</button>
+    <button onclick="filterPosts('Short Story')">Short Stories</button>
+    <button onclick="filterPosts('Long Story')">Long Stories</button>
+  </div>
+
+  <div id="posts"></div>
+
+</main>
+
+<script>
+  /* 🔥 REPLACE WITH YOUR FIREBASE CONFIG */
+  const firebaseConfig = {
+  apiKey: "AIzaSyC092TZWRsepF25r8rqRleGSAhIXvEGYm8",
+  authDomain: "soft-chaos.firebaseapp.com",
+  projectId: "soft-chaos",
+  storageBucket: "soft-chaos.firebasestorage.app",
+  messagingSenderId: "855037366532",
+  appId: "1:855037366532:web:ad8f7ebc2a7dffadc90051",
+  measurementId: "G-R1D1JM3R2T"
+};
+
+
+  firebase.initializeApp(firebaseConfig);
+
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+
+  let allPosts = [];
+  let currentFilter = "All";
+
+  auth.onAuthStateChanged(user=>{
+    loginBox.classList.toggle("hidden",!!user);
+    writeBox.classList.toggle("hidden",!user);
+  });
+
+  function login(){
+    auth.signInWithEmailAndPassword(email.value,password.value)
+      .catch(err=>alert(err.message));
+  }
+
+  function publish(){
+    if(!title.value || !content.value){
+      alert("Write something first.");
+      return;
+    }
+
+    db.collection("posts").add({
+      title:title.value,
+      content:content.value,
+      type:type.value,
+      author:"Snehaeasha",
+      createdAt:firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    title.value="";
+    content.value="";
+  }
+
+  db.collection("posts")
+    .orderBy("createdAt","desc")
+    .onSnapshot(snapshot=>{
+      allPosts=[];
+      snapshot.forEach(doc=>{
+        allPosts.push({id:doc.id,...doc.data()});
+      });
+      renderPosts();
+    });
+
+  function filterPosts(type){
+    currentFilter=type;
+    renderPosts();
+  }
+
+  function renderPosts(){
+    posts.innerHTML="";
+
+    allPosts
+      .filter(p=>currentFilter==="All"||p.type===currentFilter)
+      .forEach(p=>{
+        const date=p.createdAt
+          ? p.createdAt.toDate().toDateString()
+          : "Just now";
+
+        posts.innerHTML+=`
+          <div class="card">
+            <h3>${p.title}</h3>
+            <div class="meta">${p.type} • ${date}</div>
+            <p>${p.content}</p>
+            <div class="author">© Written by ${p.author}</div>
+
+            ${auth.currentUser ? `
+              <button onclick="editPost('${p.id}','${p.title}','${p.content}')">Edit</button>
+              <button onclick="deletePost('${p.id}')">Delete</button>
+            ` : ""}
+          </div>
+        `;
+      });
+  }
+
+  function deletePost(id){
+    if(confirm("Delete this writing?")){
+      db.collection("posts").doc(id).delete();
+    }
+  }
+
+  function editPost(id,t,c){
+    const nt=prompt("Edit title:",t);
+    const nc=prompt("Edit content:",c);
+    if(nt && nc){
+      db.collection("posts").doc(id).update({title:nt,content:nc});
+    }
+  }
+</script>
+
+</body>
+</html>
